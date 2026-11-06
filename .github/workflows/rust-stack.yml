@@ -4,8 +4,10 @@ on:
   push:
     branches:
       - main
-      - "bench/**"
+      - bench/**
   pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
@@ -30,13 +32,13 @@ jobs:
         run: cargo fmt --all --check
 
       - name: Tests
-        run: cargo test --workspace
+        run: cargo test --workspace --locked
 
-      - name: Backend compile
-        run: cargo check -p aureo-backend
+      - name: Backend check
+        run: cargo check -p aureo-backend --locked
 
   wasm:
-    name: Frontend WebAssembly
+    name: Rust WASM
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -45,14 +47,12 @@ jobs:
         with:
           targets: wasm32-unknown-unknown
 
-      - name: Frontend WASM compile
-        run: cargo check -p aureo-frontend --target wasm32-unknown-unknown
+      - name: Frontend WASM check
+        run: cargo check -p aureo-frontend --target wasm32-unknown-unknown --locked
 
   lean:
-    name: Lean + Mathlib
+    name: Lean and Mathlib
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -63,12 +63,10 @@ jobs:
           build: false
           test: false
           lint: false
-          use-mathlib-cache: false
+          cache: false
 
       - name: Resolve dependencies
-        shell: bash
         run: |
-          set -euo pipefail
           if [ ! -s lake-manifest.json ]; then
             lake update
           fi
@@ -77,10 +75,10 @@ jobs:
       - name: Mathlib cache
         run: lake exe cache get
 
-      - name: Build Lean library
+      - name: Build Lean
         run: lake build
 
-      - name: Verify Lean modules
+      - name: Compile modules
         run: |
           lake env lean Aureo.lean
           lake env lean Aureo/Basic.lean
@@ -89,27 +87,20 @@ jobs:
       - name: Reject unfinished proofs
         shell: bash
         run: |
-          if grep -RInE --include='*.lean' --exclude-dir='.lake' '\b(sorry|admit)\b' .; then
-            echo "Unfinished proof marker found"
+          set -euo pipefail
+          if grep -R -n -E '\b(sorry|admit)\b' \
+            --include='*.lean' \
+            --exclude-dir=.lake \
+            --exclude-dir=.git \
+            Aureo.lean Aureo; then
+            echo "ERROR: sorry/admit encontrados"
             exit 1
           fi
+          echo "PASS: no sorry/admit markers"
 
-      - name: Upload dependency lockfile
+      - name: Preserve Lean manifest
         uses: actions/upload-artifact@v4
         with:
-          name: 0aureo-lake-manifest
+          name: aureo-lean-manifest
           path: lake-manifest.json
           if-no-files-found: error
-
-      - name: Commit generated lockfile
-        if: github.event_name == 'push'
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [ -n "$(git status --porcelain -- lake-manifest.json)" ]; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add lake-manifest.json
-            git commit -m "chore(lean): lock Mathlib dependencies"
-            git push origin "HEAD:${GITHUB_REF_NAME}"
-          fi
