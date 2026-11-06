@@ -1,0 +1,47 @@
+name: 0Aureo Reproducible Lean Benchmarks
+
+on:
+  push:
+    branches:
+      - main
+      - "bench/**"
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lean-benchmarks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Lean
+        uses: leanprover/lean-action@v1
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Integrity
+        run: python bench/integrity.py
+
+      - name: Dependencies
+        run: lake update
+
+      - name: Build
+        run: lake build
+
+      - name: Benchmarks
+        run: python bench/run.py --cold-runs 2 --warm-runs 3
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: 0aureo-lean-benchmark
+          path: bench/results/
+          if-no-files-found: warn
