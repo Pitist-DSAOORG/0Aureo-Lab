@@ -56,34 +56,47 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Lean
-        uses: leanprover/lean-action@v1
-        with:
-          auto-config: false
-          build: false
-          test: false
-          lint: false
-          use-mathlib-cache: false
+      - name: Install Lean toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          TOOLCHAIN="$(tr -d '\r\n' < lean-toolchain)"
+          test -n "$TOOLCHAIN"
+          curl --proto '=https' --tlsv1.2 -sSf \
+            https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh \
+            | sh -s -- -y --default-toolchain "$TOOLCHAIN"
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+          export PATH="$HOME/.elan/bin:$PATH"
+          lean --version
+          lake --version
 
       - name: Resolve dependencies
         shell: bash
         run: |
           set -euo pipefail
-          if [ ! -s lake-manifest.json ]; then
-            lake update
-          fi
+          export PATH="$HOME/.elan/bin:$PATH"
+          lake update
           test -s lake-manifest.json
 
       - name: Mathlib cache
-        run: lake exe cache get
+        shell: bash
+        run: |
+          set -euo pipefail
+          export PATH="$HOME/.elan/bin:$PATH"
+          lake exe cache get
 
       - name: Build Lean
-        run: lake build
+        shell: bash
+        run: |
+          set -euo pipefail
+          export PATH="$HOME/.elan/bin:$PATH"
+          lake build
 
       - name: Compile modules
         shell: bash
         run: |
           set -euo pipefail
+          export PATH="$HOME/.elan/bin:$PATH"
           lake env lean Aureo.lean
           lake env lean Aureo/Basic.lean
           lake env lean Aureo/PipelineTest.lean
