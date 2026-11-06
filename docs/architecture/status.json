@@ -1,0 +1,28 @@
+{
+  "project": "0Aureo",
+  "schema_version": 1,
+  "overall_status": "SPECIFICATION_ONLY",
+  "implemented": false,
+  "integrated": false,
+  "verified": false,
+  "components": [
+    {"name": "frontend_leptos_wasm", "status": "DESIGNED"},
+    {"name": "backend_axum_tokio", "status": "DESIGNED"},
+    {"name": "shared_serde_dto", "status": "DESIGNED"},
+    {"name": "gguf_parser", "status": "DESIGNED"},
+    {"name": "tensor_loader", "status": "DESIGNED"},
+    {"name": "tokenizer", "status": "DESIGNED"},
+    {"name": "transformer", "status": "DESIGNED"},
+    {"name": "rope", "status": "DESIGNED"},
+    {"name": "attention", "status": "DESIGNED"},
+    {"name": "kv_cache", "status": "DESIGNED"},
+    {"name": "mlp", "status": "DESIGNED"},
+    {"name": "sampler", "status": "DESIGNED"},
+    {"name": "agent_coordinator", "status": "DESIGNED"},
+    {"name": "task_queue", "status": "DESIGNED"},
+    {"name": "bounded_executor", "status": "DESIGNED"},
+    {"name": "persistent_memory", "status": "DESIGNED"},
+    {"name": "result_verifier", "status": "DESIGNED"},
+    {"name": "verification_ci", "status": "DESIGNED"}
+  ]
+}

@@ -1,0 +1,106 @@
+name: 0Aureo CI
+
+on:
+  push:
+    branches:
+      - main
+      - bench/**
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: 0aureo-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  native:
+    name: Rust native
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Format
+        run: cargo fmt --all --check
+
+      - name: Tests
+        run: cargo test --workspace --locked
+
+      - name: Backend check
+        run: cargo check -p aureo-backend --locked
+
+  wasm:
+    name: Rust WASM
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Frontend WASM check
+        run: cargo check -p aureo-frontend --target wasm32-unknown-unknown --locked
+
+  lean:
+    name: Lean and Mathlib
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Lean
+        uses: leanprover/lean-action@v1
+        with:
+          auto-config: false
+          build: false
+          test: false
+          lint: false
+          cache: false
+
+      - name: Resolve dependencies
+        run: |
+          if [ ! -s lake-manifest.json ]; then
+            lake update
+          fi
+          test -s lake-manifest.json
+
+      - name: Mathlib cache
+        run: lake exe cache get
+
+      - name: Build Lean
+        run: lake build
+
+      - name: Compile modules
+        run: |
+          lake env lean Aureo.lean
+          lake env lean Aureo/Basic.lean
+          lake env lean Aureo/PipelineTest.lean
+
+      - name: Reject unfinished proofs
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -R -n -E '\b(sorry|admit)\b' \
+            --include='*.lean' \
+            --exclude-dir=.lake \
+            --exclude-dir=.git \
+            Aureo.lean Aureo; then
+            echo "ERROR: sorry/admit encontrados"
+            exit 1
+          fi
+          echo "PASS: no sorry/admit markers"
+
+      - name: Preserve Lean manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: aureo-lean-manifest
+          path: lake-manifest.json
+          if-no-files-found: error
