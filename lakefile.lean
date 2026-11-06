@@ -1,5 +1,5 @@
 import Lake
-open Lake
+open Lake DSL
 
 package «aureo-9-9» where
   leanOptions := #[
