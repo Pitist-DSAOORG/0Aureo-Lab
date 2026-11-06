@@ -2,3 +2,6 @@ __pycache__/
 *.pyc
 bench/results/*.log
 bench/results/benchmark.json
+/target/
+/.lake/
+/lake-packages/
