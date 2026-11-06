@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main
-      - bench/**
+      - "bench/**"
   pull_request:
     branches:
       - main
@@ -63,10 +63,12 @@ jobs:
           build: false
           test: false
           lint: false
-          cache: false
+          use-mathlib-cache: false
 
       - name: Resolve dependencies
+        shell: bash
         run: |
+          set -euo pipefail
           if [ ! -s lake-manifest.json ]; then
             lake update
           fi
@@ -79,7 +81,9 @@ jobs:
         run: lake build
 
       - name: Compile modules
+        shell: bash
         run: |
+          set -euo pipefail
           lake env lean Aureo.lean
           lake env lean Aureo/Basic.lean
           lake env lean Aureo/PipelineTest.lean
