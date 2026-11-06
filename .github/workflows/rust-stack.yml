@@ -1,0 +1,43 @@
+name: 0Aureo Rust Stack
+
+on:
+  push:
+    branches:
+      - main
+      - "bench/**"
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Format
+        run: cargo fmt --all --check
+
+      - name: Tests
+        run: cargo test --workspace
+
+      - name: Backend compile
+        run: cargo check -p aureo-backend
+
+  wasm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Frontend WebAssembly compile
+        run: cargo check -p aureo-frontend --target wasm32-unknown-unknown
