@@ -1,4 +1,4 @@
-name: 0Aureo Rust Stack
+name: 0Aureo CI
 
 on:
   push:
@@ -11,8 +11,13 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: 0aureo-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   native:
+    name: Rust native
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -31,6 +36,7 @@ jobs:
         run: cargo check -p aureo-backend
 
   wasm:
+    name: Frontend WebAssembly
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -39,5 +45,71 @@ jobs:
         with:
           targets: wasm32-unknown-unknown
 
-      - name: Frontend WebAssembly compile
+      - name: Frontend WASM compile
         run: cargo check -p aureo-frontend --target wasm32-unknown-unknown
+
+  lean:
+    name: Lean + Mathlib
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Lean
+        uses: leanprover/lean-action@v1
+        with:
+          auto-config: false
+          build: false
+          test: false
+          lint: false
+          use-mathlib-cache: false
+
+      - name: Resolve dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -s lake-manifest.json ]; then
+            lake update
+          fi
+          test -s lake-manifest.json
+
+      - name: Mathlib cache
+        run: lake exe cache get
+
+      - name: Build Lean library
+        run: lake build
+
+      - name: Verify Lean modules
+        run: |
+          lake env lean Aureo.lean
+          lake env lean Aureo/Basic.lean
+          lake env lean Aureo/PipelineTest.lean
+
+      - name: Reject unfinished proofs
+        shell: bash
+        run: |
+          if grep -RInE --include='*.lean' --exclude-dir='.lake' '\b(sorry|admit)\b' .; then
+            echo "Unfinished proof marker found"
+            exit 1
+          fi
+
+      - name: Upload dependency lockfile
+        uses: actions/upload-artifact@v4
+        with:
+          name: 0aureo-lake-manifest
+          path: lake-manifest.json
+          if-no-files-found: error
+
+      - name: Commit generated lockfile
+        if: github.event_name == 'push'
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -n "$(git status --porcelain -- lake-manifest.json)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add lake-manifest.json
+            git commit -m "chore(lean): lock Mathlib dependencies"
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi
